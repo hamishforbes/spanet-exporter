@@ -99,11 +99,23 @@ func (s *SpaConn) Connect() error {
 }
 
 func getFloatAttribute(data [][]string, row int, col int) float64 {
+	if len(data) < row {
+		return 0
+	}
+	if len(data[row]) < col {
+		return 0
+	}
 	v, _ := strconv.ParseFloat(data[row][col], 64)
 	return v
 }
 
 func getBoolAttribute(data [][]string, row int, col int) float64 {
+	if len(data) < row {
+		return 0
+	}
+	if len(data[row]) < col {
+		return 0
+	}
 	v, _ := strconv.ParseBool(data[row][col])
 	if v {
 		return 1
