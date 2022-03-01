@@ -6,6 +6,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type SpaPumpAttributes struct {
@@ -53,47 +54,58 @@ type SpaAttributes struct {
 }
 
 type SpaConn struct {
-	socket    SpanetSocket
-	tcpSocket *net.TCPConn
+	socket SpanetSocket
+	conn   net.Conn
+}
+
+func (s *SpaConn) setTimeout(timeout float64) {
+	if timeout == 0 {
+		s.conn.SetDeadline(time.Time{})
+	}
+	s.conn.SetDeadline(time.Now().Add(time.Duration(timeout) * time.Second))
+}
+
+func dialSpa(socket SpanetSocket) (net.Conn, error) {
+	client, err := net.DialTimeout("tcp", socket.SpaUrl, time.Duration(5)*time.Second)
+	return client, err
 }
 
 func (s *SpaConn) Connect() error {
 
-	//fmt.Println("Connecting to spa at: " + s.socket.SpaUrl)
-	tcpAddr, err := net.ResolveTCPAddr("tcp", s.socket.SpaUrl)
+	var err error
+	s.conn, err = dialSpa(s.socket)
 	if err != nil {
-		fmt.Println("Failed to resolve spa URL")
 		return err
 	}
 
-	client, err := net.DialTCP("tcp", nil, tcpAddr)
-	if err != nil {
-		fmt.Println("Failed to connect to spa")
-		return err
-	}
+	s.setTimeout(5)
 
 	fmt.Println("Opened TCP socket to spa")
 
 	connString := fmt.Sprintf("<connect--%d--%d>", s.socket.SocketId, s.socket.MemberId)
 	//fmt.Println(connString)
 
-	_, err = client.Write([]byte(connString))
+	_, err = s.conn.Write([]byte(connString))
 	if err != nil {
-		client.Close()
+		s.conn.Close()
+		s.conn = nil
 		fmt.Println("Failed to send data to spa")
 		return err
 	}
 
 	// Check that data sent successfully
 	reply := make([]byte, 22)
-	client.Read(reply)
+	s.conn.Read(reply)
 	if string(reply) != "Successfully connected" {
 		// The spa has successfully connected
+		s.conn.Close()
+		s.conn = nil
 		return errors.New("Failed to handshake with spa" + string(reply))
 	}
 
 	//fmt.Println("Successfully connected to spa, ready to send/recieve commands")
-	s.tcpSocket = client
+	// Reset timeout
+	s.setTimeout(0)
 
 	return nil
 }
@@ -185,13 +197,33 @@ func parseRfResponse(data string) map[string][]string {
 
 func (s *SpaConn) Read() (SpaAttributes, error) {
 	var attributes SpaAttributes
+
+	if s.conn == nil {
+		err := s.Connect()
+		if err != nil {
+			return attributes, err
+		}
+	}
+
 	//fmt.Println("Reading data from SPA")
 	// Request RF data
-	s.tcpSocket.Write([]byte("RF\n"))
+	s.setTimeout(5)
+	_, err := s.conn.Write([]byte("RF\n"))
+	if err != nil {
+		s.conn.Close()
+		s.conn = nil
+		return attributes, err
+	}
 
 	// Read response from spa
 	replyBytes := make([]byte, 1024)
-	s.tcpSocket.Read(replyBytes)
+	_, err = s.conn.Read(replyBytes)
+	if err != nil {
+		s.conn.Close()
+		s.conn = nil
+		return attributes, err
+	}
+	s.setTimeout(0)
 
 	reply := string(replyBytes)
 	if !strings.Contains(reply, "RF:") {

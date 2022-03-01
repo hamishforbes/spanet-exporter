@@ -192,7 +192,9 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 
 	spa, err := e.client.Read()
 	if err != nil {
-		up = 0
+		e.logger.Log("msg", "Error reading data from spa", "err", err)
+		ch <- prometheus.MustNewConstMetric(e.up, prometheus.GaugeValue, 0, e.spaName)
+		return
 	}
 
 	ch <- prometheus.MustNewConstMetric(e.up, prometheus.GaugeValue, up, e.spaName)
