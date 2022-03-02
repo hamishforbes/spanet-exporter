@@ -54,15 +54,15 @@ type SpaAttributes struct {
 }
 
 type SpaConn struct {
-	socket SpanetSocket
-	conn   net.Conn
+	Socket SpanetSocket
+	Conn   net.Conn
 }
 
 func (s *SpaConn) setTimeout(timeout float64) {
 	if timeout == 0 {
-		s.conn.SetDeadline(time.Time{})
+		s.Conn.SetDeadline(time.Time{})
 	}
-	s.conn.SetDeadline(time.Now().Add(time.Duration(timeout) * time.Second))
+	s.Conn.SetDeadline(time.Now().Add(time.Duration(timeout) * time.Second))
 }
 
 func dialSpa(socket SpanetSocket) (net.Conn, error) {
@@ -73,7 +73,7 @@ func dialSpa(socket SpanetSocket) (net.Conn, error) {
 func (s *SpaConn) Connect() error {
 
 	var err error
-	s.conn, err = dialSpa(s.socket)
+	s.Conn, err = dialSpa(s.Socket)
 	if err != nil {
 		return err
 	}
@@ -82,24 +82,24 @@ func (s *SpaConn) Connect() error {
 
 	fmt.Println("Opened TCP socket to spa")
 
-	connString := fmt.Sprintf("<connect--%d--%d>", s.socket.SocketId, s.socket.MemberId)
+	connString := fmt.Sprintf("<connect--%d--%d>", s.Socket.SocketId, s.Socket.MemberId)
 	//fmt.Println(connString)
 
-	_, err = s.conn.Write([]byte(connString))
+	_, err = s.Conn.Write([]byte(connString))
 	if err != nil {
-		s.conn.Close()
-		s.conn = nil
+		s.Conn.Close()
+		s.Conn = nil
 		fmt.Println("Failed to send data to spa")
 		return err
 	}
 
 	// Check that data sent successfully
 	reply := make([]byte, 22)
-	s.conn.Read(reply)
+	s.Conn.Read(reply)
 	if string(reply) != "Successfully connected" {
 		// The spa has successfully connected
-		s.conn.Close()
-		s.conn = nil
+		s.Conn.Close()
+		s.Conn = nil
 		return errors.New("Failed to handshake with spa" + string(reply))
 	}
 
@@ -198,29 +198,22 @@ func parseRfResponse(data string) map[string][]string {
 func (s *SpaConn) Read() (SpaAttributes, error) {
 	var attributes SpaAttributes
 
-	if s.conn == nil {
-		err := s.Connect()
-		if err != nil {
-			return attributes, err
-		}
-	}
-
 	//fmt.Println("Reading data from SPA")
 	// Request RF data
 	s.setTimeout(5)
-	_, err := s.conn.Write([]byte("RF\n"))
+	_, err := s.Conn.Write([]byte("RF\n"))
 	if err != nil {
-		s.conn.Close()
-		s.conn = nil
+		s.Conn.Close()
+		s.Conn = nil
 		return attributes, err
 	}
 
 	// Read response from spa
 	replyBytes := make([]byte, 1024)
-	_, err = s.conn.Read(replyBytes)
+	_, err = s.Conn.Read(replyBytes)
 	if err != nil {
-		s.conn.Close()
-		s.conn = nil
+		s.Conn.Close()
+		s.Conn = nil
 		return attributes, err
 	}
 	s.setTimeout(0)

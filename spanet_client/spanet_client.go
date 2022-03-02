@@ -124,7 +124,7 @@ func (c *Client) Connect(spaName string) (SpaConn, error) {
 
 	for _, socket := range sockets.Sockets {
 		if socket.Name == spaName {
-			conn = SpaConn{socket: socket}
+			conn = SpaConn{Socket: socket}
 		}
 	}
 

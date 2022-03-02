@@ -190,6 +190,15 @@ func (e *Exporter) Describe(ch chan<- *prometheus.Desc) {
 func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	up := float64(1)
 
+	if e.client.Conn == nil {
+		e.logger.Log("msg", "Reconnecting to Spa")
+		err := e.client.Connect()
+		if err != nil {
+			e.logger.Log("msg", "Error connecting to spa", "err", err)
+			ch <- prometheus.MustNewConstMetric(e.up, prometheus.GaugeValue, 0, e.spaName)
+		}
+	}
+
 	spa, err := e.client.Read()
 	if err != nil {
 		e.logger.Log("msg", "Error reading data from spa", "err", err)
