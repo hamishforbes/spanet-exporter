@@ -65,15 +65,10 @@ func (s *SpaConn) setTimeout(timeout float64) {
 	s.Conn.SetDeadline(time.Now().Add(time.Duration(timeout) * time.Second))
 }
 
-func dialSpa(socket SpanetSocket) (net.Conn, error) {
-	client, err := net.DialTimeout("tcp", socket.SpaUrl, time.Duration(5)*time.Second)
-	return client, err
-}
-
 func (s *SpaConn) Connect() error {
 
 	var err error
-	s.Conn, err = dialSpa(s.Socket)
+	s.Conn, err = net.DialTimeout("tcp", s.Socket.SpaUrl, time.Duration(5)*time.Second)
 	if err != nil {
 		return err
 	}
@@ -97,7 +92,6 @@ func (s *SpaConn) Connect() error {
 	reply := make([]byte, 22)
 	s.Conn.Read(reply)
 	if string(reply) != "Successfully connected" {
-		// The spa has successfully connected
 		s.Conn.Close()
 		s.Conn = nil
 		return errors.New("Failed to handshake with spa" + string(reply))
@@ -222,14 +216,12 @@ func (s *SpaConn) Read() (SpaAttributes, error) {
 	if !strings.Contains(reply, "RF:") {
 		return attributes, errors.New("Malformed Response")
 	}
-
-	fmt.Println(reply)
-	fmt.Println("-----")
+	/*
+		fmt.Println(reply)
+		fmt.Println("-----")
+	*/
 
 	data := parseRfResponse(reply)
-
-	fmt.Println(fmt.Sprintf("R5: %s", strings.Join(data["R5"], ",")))
-	fmt.Println(getFloatAttribute(data, "R5", 14))
 
 	attributes.WaterTemperature = getFloatAttribute(data, "R5", 14) / 10
 	attributes.TargetTemperature = getFloatAttribute(data, "R6", 7) / 10
@@ -273,11 +265,14 @@ func (s *SpaConn) Read() (SpaAttributes, error) {
 	attributes.Pumps[4].Active = getBoolAttribute(data, "R5", 21)
 	attributes.Pumps[4].Ok = getBoolAttribute(data, "RG", 4)
 
-	fmt.Printf("Pump 1 Installed: %s \n", attributes.Pumps[0].Installed)
-	fmt.Printf("Pump 2 Installed: %s \n", attributes.Pumps[1].Installed)
-	fmt.Printf("Pump 3 Installed: %s \n", attributes.Pumps[2].Installed)
-	fmt.Printf("Pump 4 Installed: %s \n", attributes.Pumps[3].Installed)
-	fmt.Printf("Pump 5 Installed: %s \n", attributes.Pumps[4].Installed)
+	// TODO: parse pump installed
+	/*
+		fmt.Printf("Pump 1 Installed: %s \n", attributes.Pumps[0].Installed)
+		fmt.Printf("Pump 2 Installed: %s \n", attributes.Pumps[1].Installed)
+		fmt.Printf("Pump 3 Installed: %s \n", attributes.Pumps[2].Installed)
+		fmt.Printf("Pump 4 Installed: %s \n", attributes.Pumps[3].Installed)
+		fmt.Printf("Pump 5 Installed: %s \n", attributes.Pumps[4].Installed)
+	*/
 
 	attributes.Settings = SpaSettings{
 		Lock: getFloatAttribute(data, "RG", 11),

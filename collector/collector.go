@@ -63,12 +63,12 @@ func New(username string, passwordHash string, spaName string, logger log.Logger
 			[]string{"spa_name"},
 			nil,
 		), water_temp: prometheus.NewDesc(
-			prometheus.BuildFQName(Namespace, "", "water_temp"),
+			prometheus.BuildFQName(Namespace, "", "water_temperature"),
 			"Current water temperature.",
 			[]string{"spa_name"},
 			nil,
 		), target_temp: prometheus.NewDesc(
-			prometheus.BuildFQName(Namespace, "", "target_temp"),
+			prometheus.BuildFQName(Namespace, "", "target_temperature"),
 			"Target water temperature.",
 			[]string{"spa_name"},
 			nil,
@@ -191,6 +191,10 @@ func (e *Exporter) Collect(ch chan<- prometheus.Metric) {
 	up := float64(1)
 
 	if e.client.Conn == nil {
+		// Pretty sure this is terrible
+		// Should probably be using channels to make sure we only have 1 active connection
+		// and any read requests queue waiting for a response
+		// but it'll do for now
 		e.logger.Log("msg", "Reconnecting to Spa")
 		err := e.client.Connect()
 		if err != nil {
